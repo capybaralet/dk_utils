@@ -31,11 +31,17 @@
 #cp /data/lisa/exp/kruegerd/rnn-vae/*.html /home/www-etud/kruegerd/public_html/
 
 
-echo "List of files in lisa/exp/kruegerd/layer_wise_training/:"
+#echo "List of files in lisa/exp/kruegerd/layer_wise_training/:"
 
-ls /data/lisa/exp/kruegerd/layer_wise_training/*.png
-cp /data/lisa/exp/kruegerd/layer_wise_training/*.png /home/www-etud/kruegerd/public_html/
-cp /data/lisa/exp/kruegerd/layer_wise_training/*.html /home/www-etud/kruegerd/public_html/
+#ls /data/lisa/exp/kruegerd/layer_wise_training/*.png
+#cp /data/lisa/exp/kruegerd/layer_wise_training/*.png /home/www-etud/kruegerd/public_html/
+#cp /data/lisa/exp/kruegerd/layer_wise_training/*.html /home/www-etud/kruegerd/public_html/
+
+
+echo "List of files in /u/kruegerd/TTS_current/speechgeneration/params_plots/:"
+
+ls /u/kruegerd/TTS_current/speechgeneration/params_plots/*.png
+cp /u/kruegerd/TTS_current/speechgeneration/params_plots/*.png /home/www-etud/kruegerd/public_html/
 
 chmod 755 /home/www-etud/kruegerd/public_html/*.png
 chmod 755 /home/www-etud/kruegerd/public_html/*.html
