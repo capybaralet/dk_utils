@@ -7,7 +7,6 @@ import sys
 import os
 import time
 import cPickle as pickle
-import subprocess
 
 import numpy
 np = numpy
