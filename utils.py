@@ -7,6 +7,7 @@ import sys
 import os
 import time
 import cPickle as pickle
+import subprocess
 
 import numpy
 np = numpy
@@ -30,6 +31,15 @@ from pylearn2.utils import serial
 #
 #    fl = sys._getframe(1).f_locals
 #    fl['sys'] = sys
+
+#_______________________________________________________________________________
+# for quick testing:
+
+vec3 = A([-1,-2,-3])
+vec5 = A(range(5))
+arr23 = A([[1,2,3], [4,5,6]])
+arr235 = A([[[1,2,3], [4,5,6]], [[0,1,2], [4,5,6]], [[1,2,3], [0,5,6]], [[-1,2,3], [4,5,6]], [[1,2,3], [-4,5,6]]]).transpose((1,2,0))
+
 
 #_______________________________________________________________________________
 # PLOTS
@@ -67,6 +77,10 @@ def mplots(list_of_vecs, maxnplots=25, background_vecs=None):
         if background_vecs is not None:
             for vec in background_vecs:
                 plt.plot(vec)
+
+
+#_______________________________________________________________________________
+# OTHERS' code
 
 # modified from http://stackoverflow.com/questions/2459295/invertible-stft-and-istft-in-python
 def stft(x, amp_phase=0, fs=1, framesz=320., hop=160.):
@@ -240,6 +254,26 @@ def shared_normal(num_rows, num_cols, scale=1):
 
 def shared_zeros(*shape):
     return theano.shared(numpy.zeros(shape, dtype=theano.config.floatX))
+
+
+#_______________________________________________________________________________
+# ALL MINE!
+
+def try_save(path, arr):
+    try:
+        np.save(path, arr)
+    except:
+        subprocess.call('ls' + path)
+        time.sleep(1)
+        np.save(path, arr)
+
+def try_save_obj(path, obj):
+    try:
+        obj.save(path)
+    except:
+        subprocess.call('ls' + path)
+        time.sleep(1)
+        obj.save(path)
 
 def sigmoidd(x):
     return 1. / (1 + np.exp(-x))
