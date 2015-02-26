@@ -3,15 +3,30 @@
 #TODO: add paths
 #TODO: define test matrices for checking things!
 
+"""
+Some syntax I'd like to add to python (I think this is easy to do, although dangerous)
+
+list.prepend
+l1[l2]
+if a is in l:
+
+"""
+#from __future__ import absolute_import
+
 import sys
 import os
 import time
 import cPickle as pickle
 import subprocess
+import collections
+import warnings
+import ipdb
 
 import numpy
 np = numpy
 import numpy.random
+shuffle = numpy.random.shuffle
+permutation = numpy.random.permutation
 from numpy import array as A
 import scipy
 from scipy.io import wavfile as wav
@@ -24,7 +39,12 @@ import theano
 import theano.tensor as T
 from theano import function as F
 from theano.tensor.shared_randomstreams import RandomStreams
-from pylearn2.utils import serial
+
+# problems when local version of pylearn exists!
+# for some reason, this doesn't solve it... now it will only look at the copy in repo
+#sys.path.insert(0, '/u/kruegerd/repo/pylearn2/')
+#from pylearn2.utils import serial
+#sys.path.insert(0, '')
 
 
 # This is how I was doing it before...
@@ -77,6 +97,96 @@ def mplots(list_of_vecs, maxnplots=25, background_vecs=None):
         if background_vecs is not None:
             for vec in background_vecs:
                 plt.plot(vec)
+
+
+
+#_______________________________________________________________________________
+# OTHER CODE (MINE!)
+
+def nprint(str):
+    print '\n \n'
+    print str
+    print '\n \n'
+
+def try_save(path, arr):
+    try:
+        np.save(path, arr)
+    except:
+        subprocess.call('ls' + path)
+        time.sleep(1)
+        np.save(path, arr)
+
+def try_save_obj(path, obj):
+    try:
+        obj.save(path)
+    except:
+        subprocess.call('ls' + path)
+        time.sleep(1)
+        obj.save(path)
+
+def incorporate(list, list_or_element):
+    """ If its a list, we want to add the elements,
+        If its not, we want to add it"""
+    if isinstance(list_or_element, list):
+        list.extend(list_or_element)
+    else:
+        list.append(list_or_element)
+
+def time_dhm(seconds):
+    m = seconds / 60
+    h = m / 60
+    m = m % 60
+    d = h / 24
+    h = h % 24
+    return str(d)+' days, '+str(h)+' hours, '+str(m)+' minutes'
+
+
+def sigmoidd(x):
+    return 1. / (1 + np.exp(-x))
+
+def softmaxx(vec):
+    expd = np.exp(vec)
+    summ = np.sum(expd)
+    return expd/summ
+
+# "spherical softmax"
+def ssoftmaxx(vec):
+    vec = vec**2
+    summ = np.sum(vec)
+    return np.log(vec/summ)
+
+def numnans(arr):
+    return np.sum(np.isnan(arr))
+
+def isin_name(var, substr):
+    if substr in var.name:
+        return True
+    else:
+        return False
+
+def isin(str, substr):
+    if substr in str:
+        return True
+    else:
+        return False
+
+#def shortest(arr):
+#    return min(arr.shape)
+
+
+# should make another copy for arrays!
+def trim(list):
+    """trim a list of lists down to the shortest length among them"""
+    minlen = np.inf
+    for i in list:
+        if len(i) < minlen:
+            minlen = len(i)
+    mylist = []
+    for i in list:
+        mylist.append(i[:minlen])
+    return mylist
+
+
 
 
 #_______________________________________________________________________________
@@ -256,94 +366,6 @@ def shared_zeros(*shape):
     return theano.shared(numpy.zeros(shape, dtype=theano.config.floatX))
 
 
-#_______________________________________________________________________________
-# ALL MINE!
-
-def try_save(path, arr):
-    try:
-        np.save(path, arr)
-    except:
-        subprocess.call('ls' + path)
-        time.sleep(1)
-        np.save(path, arr)
-
-def try_save_obj(path, obj):
-    try:
-        obj.save(path)
-    except:
-        subprocess.call('ls' + path)
-        time.sleep(1)
-        obj.save(path)
-
-def sigmoidd(x):
-    return 1. / (1 + np.exp(-x))
-
-def softmaxx(vec):
-    expd = np.exp(vec)
-    summ = np.sum(expd)
-    return expd/summ
-
-# "spherical softmax"
-def ssoftmaxx(vec):
-    vec = vec**2
-    summ = np.sum(vec)
-    return np.log(vec/summ)
-
-def numnans(arr):
-    return np.sum(np.isnan(arr))
-
-def time_dhm(seconds):
-    m = seconds / 60
-    h = m / 60
-    m = m % 60
-    d = h / 24
-    h = h % 24
-    return str(d)+' days, '+str(h)+' hours, '+str(m)+' minutes'
-
-
-def isin_name(var, substr):
-    if substr in var.name:
-        return True
-    else:
-        return False
-
-def isin(str, substr):
-    if substr in str:
-        return True
-    else:
-        return False
-
-
-def shortest(arr):
-    return min(arr.shape)
-
-def nprint(str):
-    print '\n \n'
-    print str
-    print '\n \n'
-
-
-# should make another copy for arrays!
-def trim(list):
-    """trim a list of lists down to the shortest length among them"""
-    minlen = np.inf
-    for i in list:
-        if len(i) < minlen:
-            minlen = len(i)
-    mylist = []
-    for i in list:
-        mylist.append(i[:minlen])
-    return mylist
-
-
-def incorporate(list, list_or_element):
-    """ If its a list, we want to add the elements,
-        If its not, we want to add it"""
-    if isinstance(list_or_element, list):
-        list.extend(list_or_element)
-    else:
-        list.append(list_or_element)
-
 
 
 
@@ -359,6 +381,13 @@ def mprint(str):
         print(str)
     else:
         pass
+
+#TODO
+def contains(container, obj): 
+    """test if obj is in some"""
+    return "this is a WIP"
+
+
 
 """
 # check if filename exists, if it does, load and return
