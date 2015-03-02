@@ -10,6 +10,8 @@ list.prepend
 l1[l2]
 if a is in l:
 
+try without except (assumes except: pass)
+
 """
 #from __future__ import absolute_import
 
@@ -30,11 +32,13 @@ permutation = numpy.random.permutation
 from numpy import array as A
 import scipy
 from scipy.io import wavfile as wav
+from scipy.io import loadmat, savemat
 
 import matplotlib.pyplot as plt
 import pylab
 from pylab import *
 
+# causes problems when you specify the GPU# now...
 import theano
 import theano.tensor as T
 from theano import function as F
@@ -58,8 +62,31 @@ from theano.tensor.shared_randomstreams import RandomStreams
 vec3 = A([-1,-2,-3])
 vec5 = A(range(5))
 arr23 = A([[1,2,3], [4,5,6]])
+arr79 = A(range(63)).reshape((7,9))
 arr235 = A([[[1,2,3], [4,5,6]], [[0,1,2], [4,5,6]], [[1,2,3], [0,5,6]], [[-1,2,3], [4,5,6]], [[1,2,3], [-4,5,6]]]).transpose((1,2,0))
 
+
+#_______________________________________________________________________________
+# data paths:
+tmpp = '/Tmp/kruegerd/'
+ltmpp = '/data/lisatmp/kruegerd/'
+sgp = '/u/kruegerd/TTS_current/speechgeneration/'
+dldp = '/data/lisa/data/'
+timp = '/data/lisa/data/timit/readable/'
+lcs = '_learning_curve.npy'
+
+
+#_______________________________________________________________________________
+# experiment logging
+
+def log_me(filepath):
+    # TODO: timestamp, and deal with resaving results for ongoing experiments...
+    proc = subprocess.Popen(['hostname'], stdout=subprocess.PIPE)
+    lines = proc.stdout.readlines()
+    hostname = lines[0][:-1]
+    fil = open('/u/kruegerd/exp_log.txt', 'a')
+    fil.write('\n' + hostname + '\n' + "filepath=" + filepath)
+    fil.close()
 
 #_______________________________________________________________________________
 # PLOTS
@@ -103,6 +130,10 @@ def mplots(list_of_vecs, maxnplots=25, background_vecs=None):
 #_______________________________________________________________________________
 # OTHER CODE (MINE!)
 
+def segment_ddm(dmat, length, overlap=0):
+    """Segment a design matrix dataset into shorter examples"""
+    return np.vstack(segment_axis(dmat, length, overlap, 1))
+
 def nprint(str):
     print '\n \n'
     print str
@@ -112,7 +143,7 @@ def try_save(path, arr):
     try:
         np.save(path, arr)
     except:
-        subprocess.call('ls' + path)
+        subprocess.call('ls' + path) # FIXME: complete savepath won't necessarily exist!
         time.sleep(1)
         np.save(path, arr)
 
@@ -120,7 +151,7 @@ def try_save_obj(path, obj):
     try:
         obj.save(path)
     except:
-        subprocess.call('ls' + path)
+        subprocess.call('ls' + path) # FIXME: complete savepath won't necessarily exist!
         time.sleep(1)
         obj.save(path)
 
