@@ -12,6 +12,11 @@ if a is in l:
 
 try without except (assumes except: pass)
 
+strings should support item assignment (e.g. str[4] = 'r')
+    oh wait, nvm, they are immutable... actually, I think I am used to numpy and
+    think python should be pass-by-value, not pass-by-reference, as a result...
+    but it is neither... see here: http://stupidpythonideas.blogspot.ca/2013/11/does-python-pass-by-value-or-by.html
+
 """
 #from __future__ import absolute_import
 
@@ -29,7 +34,6 @@ np = numpy
 import numpy.random
 shuffle = numpy.random.shuffle
 permutation = numpy.random.permutation
-from numpy import array as A
 import scipy
 from scipy.io import wavfile as wav
 from scipy.io import loadmat, savemat
@@ -41,8 +45,19 @@ from pylab import *
 # causes problems when you specify the GPU# now...
 import theano
 import theano.tensor as T
+from theano import shared as ts
 from theano import function as F
+from theano.printing import debugprint as tprint
 from theano.tensor.shared_randomstreams import RandomStreams
+RS = RandomStreams
+trng = RS(123)
+
+from imp import load_source as import_by_path
+
+from dk_reconstruct import vocoder_synth
+
+# import theano.printing.debugprint as print_graph
+
 
 # problems when local version of pylearn exists!
 # for some reason, this doesn't solve it... now it will only look at the copy in repo
@@ -50,11 +65,16 @@ from theano.tensor.shared_randomstreams import RandomStreams
 #from pylearn2.utils import serial
 #sys.path.insert(0, '')
 
-
 # This is how I was doing it before...
 #
 #    fl = sys._getframe(1).f_locals
 #    fl['sys'] = sys
+
+#_______________________________________________________________________________
+#from numpy import array as A
+
+def A(xx):
+    return np.array(xx).astype("float32")
 
 #_______________________________________________________________________________
 # for quick testing:
@@ -65,6 +85,8 @@ arr23 = A([[1,2,3], [4,5,6]])
 arr79 = A(range(63)).reshape((7,9))
 arr235 = A([[[1,2,3], [4,5,6]], [[0,1,2], [4,5,6]], [[1,2,3], [0,5,6]], [[-1,2,3], [4,5,6]], [[1,2,3], [-4,5,6]]]).transpose((1,2,0))
 
+def tso(list):
+    return theano.shared(np.ones(list))
 
 #_______________________________________________________________________________
 # data paths:
@@ -112,11 +134,20 @@ def mimsave(path, img, range=None, squash=False):
     mimshow(img, range, squash)
     plt.savefig(path)
     plt.close()
+"""
+# TODO: should take an expression and make a plot...
+def eplot(exp):
+    xx = np.linspace()...
+"""
 
-
-def mplots(list_of_vecs, maxnplots=25, background_vecs=None):
+def fplot(xx):
     plt.figure()
-    nrows = min(int(len(list_of_vecs) ** .5), maxnplots)
+    plt.plot(xx)
+
+def mplots(list_of_vecs, maxnrows=10, background_vecs=None, round_up=False):
+    plt.figure()
+    nrows = min(int(len(list_of_vecs) ** .5), maxnrows)
+    if round_up: nrows += 1
     print "nrows=", nrows
     for i in range(nrows**2):
         plt.subplot(nrows, nrows, i+1)
@@ -125,19 +156,146 @@ def mplots(list_of_vecs, maxnplots=25, background_vecs=None):
             for vec in background_vecs:
                 plt.plot(vec)
 
+def mimshows(list_of_mats, maxnrows=10, normalize=True):
+    plt.figure()
+    nrows = min(int(len(list_of_mats) ** .5), maxnrows)
+    print "nrows=", nrows
+    if normalize:
+        vmin = np.min(list_of_mats)
+        vmax = np.max(list_of_mats)
+    for i in range(nrows**2):
+        plt.subplot(nrows, nrows, i+1)
+        plt.imshow(list_of_mats[i], interpolation='none', cmap="Greys", vmin=vmin, vmax=vmax)
+
+def plot_params(model=None, params=None, return_params=True, summary_stats=True, save_path=None):
+    """ Makes a single plot with subplots for each of the model's parameters
+        Assumes that all params are scalars, vectors, or matrices."""
+    if params is None:
+        params = model.params
+    nparams = len(params)
+    print 'nparams =', nparams
+    ncols = int(nparams **.5) + 1 #TODO
+    figure()
+    rval = []
+    if summary_stats: 
+        param_names = []
+        means = []
+    for n in range(nparams):
+        param = params[n]
+        subplot(ncols, ncols, n+1)
+        title(param.name)
+        param_value = params[n].get_value()
+        param_shape = param_value.shape
+        print param.name, param_shape
+        if summary_stats:
+            param_names.append(param.name)
+            means.append(np.mean(np.abs(param_value)))
+            print "max, min, mean, std=", np.max(param_value), np.min(param_value), np.mean(param_value), np.std(param_value)
+        if 1 in param_shape:
+            param_value = param_value.flatten()
+            param_shape = param_value.shape
+        if len(param_shape) == 2:
+            mimshow(params[n].get_value())
+        elif len(param_shape) == 1:
+            plot(params[n].get_value().flatten())
+        else:
+            print param.name, '=', param_value
+        rval.append(param_value)
+    show()
+    # ok, wtf python?  Why do I need change between lists and arrays so much!?!?
+    srts = list(np.argsort(means))
+    print "mean absolute values, in order:"
+    print list(A(param_names)[srts])
+    print list(A(means)[srts])
+
+    if save_path is not None:
+        # TODO: configure plot (maximize, make titles visible)
+        savefig(save_path)
+
+    if return_params:
+        return rval
 
 
 #_______________________________________________________________________________
 # OTHER CODE (MINE!)
 
+def nprint(obj):
+    print '\n \n'
+    print obj
+    print '\n \n'
+
+# FIXME (use frames???)
+def dprint(str):
+    print str,"=", locals()[str]
+
+# TODO!
+def show_array(arr):
+    print arr.shape
+    ndims = len(arr.shape)
+
+def rlen(x):
+    return range(len(x))
+
+
+def get_nparams(list_of_theano_shareds):
+    nparams = 0
+    for var in list_of_theano_shareds:
+        nparams += len(var.get_value().flatten())
+    return nparams
+
+def copy_wavs(filenames, ncopies=10):
+    for fn in filenames:
+        fs, wavf = wav.read(fn + '.wav')
+        wavf = np.tile(wavf, ncopies)
+        wav.write(fn + str(ncopies) + '.wav', fs, wavf)
+
+def OLS(A, b):
+    """
+    Performs Ordinary Least Squares Regression
+    returns argmin_x ||Ax - b||
+    """
+    AT = A.T
+    return np.dot(np.dot(inv(np.dot(AT, A)), AT), b)
+
+
+def log_p_x_beta(x, a, b):
+    return np.log( x**(a-1) * (1-x)**(b-1) / scipy.special.beta(a,b) )
+
+def theano_beta_fn(a, b):
+    return T.gamma(a) * T.gamma(b) / T.gamma(a+b)
+
+def theano_log_p_x_beta(x, a, b):
+    return T.log( x**(a-1) * (1-x)**(b-1) / theano_beta_fn(a,b) )
+
+
 def segment_ddm(dmat, length, overlap=0):
     """Segment a design matrix dataset into shorter examples"""
     return np.vstack(segment_axis(dmat, length, overlap, 1))
 
-def nprint(str):
-    print '\n \n'
-    print str
-    print '\n \n'
+def my_slice(arr, frame_len, subframe_len, start_ind=0):
+    """
+    Slices an array with concatenated frames returning an array
+        with the same semantics, but with subframes of the frames slices out.
+    Assumes the frames are concatenated in the last dimension.
+    """
+    shape = arr.shape
+    ndims = len(shape)
+    tmp = arr.reshape(shape[:-1] + (-1, frame_len)).transpose(range(ndims+1)[::-1])
+    return tmp[start_ind:start_ind + subframe_len].transpose(range(ndims+1)[::-1]).reshape(arr.shape[:-1] + (-1,))
+
+def replace_slice(arr, replacement_arr, frame_len, subframe_len, start_ind=0):
+    """
+    Like my_slice, slices an array with concatenated frames returning an array
+        with the same semantics, but with subframes of the frames REPLACED by replacement_arr.
+    Assumes the frames are concatenated in the last dimension.
+    """
+    shape = arr.shape
+    ndims = len(shape)
+    tmp = arr.reshape(shape[:-1] + (-1, frame_len)).transpose(range(ndims+1)[::-1])
+    replacement_tmp = replacement_arr.reshape(shape[:-1] + (-1, subframe_len)).transpose(range(ndims+1)[::-1])
+    tmp[start_ind:start_ind + subframe_len] = replacement_tmp
+    return tmp.transpose(range(ndims+1)[::-1]).reshape(arr.shape[:-1] + (-1,))
+
 
 def try_save(path, arr):
     try:
@@ -171,6 +329,8 @@ def time_dhm(seconds):
     h = h % 24
     return str(d)+' days, '+str(h)+' hours, '+str(m)+' minutes'
 
+def tanhh(xx):
+    return (np.exp(xx) - np.exp(-xx)) / (np.exp(xx) + np.exp(-xx))
 
 def sigmoidd(x):
     return 1. / (1 + np.exp(-x))
@@ -219,9 +379,28 @@ def trim(list):
 
 
 
-
 #_______________________________________________________________________________
 # OTHERS' code
+
+
+def moving_average(values,window):
+    weigths = np.repeat(1.0, window)/window
+    #including valid will REQUIRE there to be enough datapoints.
+    #for example, if you take out valid, it will start @ point one,
+    #not having any prior points, so itll be 1+0+0 = 1 /3 = .3333
+    smas = np.convolve(values, weigths, 'valid')
+    return smas # as a numpy array
+
+
+def shared_normal(num_rows, num_cols, scale=1):
+    return theano.shared(numpy.random.normal(
+        scale=scale, size=(num_rows, num_cols)).astype(theano.config.floatX))
+
+def shared_zeros(*shape):
+    return theano.shared(numpy.zeros(shape, dtype=theano.config.floatX))
+
+
+
 
 # modified from http://stackoverflow.com/questions/2459295/invertible-stft-and-istft-in-python
 def stft(x, amp_phase=0, fs=1, framesz=320., hop=160.):
@@ -242,6 +421,54 @@ def stft(x, amp_phase=0, fs=1, framesz=320., hop=160.):
         return X, Xamp, Xphase
     else:
         return X
+
+
+
+
+def istft(X, fs, T, hop): 
+    """ T - signal length """ # why do I need it!!??!?
+    length = T*fs
+    x = scipy.zeros(T*fs)
+    framesamp = X.shape[1]
+    hopsamp = int(hop*fs)
+    for n,i in enumerate(range(0, len(x)-framesamp, hopsamp)):
+        x[i:i+framesamp] += scipy.real(scipy.ifft(X[n]))
+    # calculate the inverse envelope to scale results at the ends.
+    env = scipy.zeros(T*fs)
+    w = scipy.hamming(framesamp)
+    for i in range(0, len(x)-framesamp, hopsamp):
+        env[i:i+framesamp] += w
+    env[-(length%hopsamp):] += w[-(length%hopsamp):]
+    env = np.maximum(env, .01)
+    return x/env # right side is still a little messed up...
+
+def istft(X, fs=1, hop=160.): #FIXME?
+    """ T - signal length """
+    T = (X.shape[0]+1)*hop
+    length = T
+    x = scipy.zeros(T*fs)
+    framesamp = X.shape[1]
+    hopsamp = int(hop*fs)
+    for n,i in enumerate(range(0, len(x)-framesamp-1, hopsamp)):
+        x[i:i+framesamp] += scipy.real(scipy.ifft(X[n]))
+    # calculate the inverse envelope to scale results at the ends.
+    env = scipy.zeros(T*fs)
+    w = scipy.hamming(framesamp)
+    for i in range(0, len(x)-framesamp, hopsamp):
+        env[i:i+framesamp] += w
+    env[-(length%hopsamp):] += w[-(length%hopsamp):]
+    env = np.maximum(env, .01)
+    return x/env # right side is still a little messed up...
+
+def abs_stft(x):
+    stftd = stft(x)
+    stftd[:,:160] = np.abs(stftd[:,:160])
+    stftd[:,160:] = np.zeros_like(stftd[:,160:])
+    return stftd
+
+def stftd(x): # FIXME!
+    return istft(abs_stft(x))
+
 
 
 # from https://github.com/vdumoulin/sheldon
@@ -388,16 +615,6 @@ def factor(n):
     result.append(i) # i is a pf s times
    if n == 1:
     return result
-
-def shared_normal(num_rows, num_cols, scale=1):
-    return theano.shared(numpy.random.normal(
-        scale=scale, size=(num_rows, num_cols)).astype(theano.config.floatX))
-
-def shared_zeros(*shape):
-    return theano.shared(numpy.zeros(shape, dtype=theano.config.floatX))
-
-
-
 
 
 #_______________________________________________________________________________
